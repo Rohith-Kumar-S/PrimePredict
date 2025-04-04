@@ -1,1 +1,3 @@
 # AmazonSalesPredictor
+
+initial commit
