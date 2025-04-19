@@ -1,21 +1,38 @@
 import pandas as pd
 import numpy as np
+from sklearn.preprocessing import MinMaxScaler
+from sklearn.decomposition import PCA
 
 
 class FeatureEngineering:
-    def __init__(self, data, holidays, holidays_2021, inflation, events):
+    def __init__(
+        self,
+        data,
+        holidays,
+        holidays_2021,
+        inflation,
+        events,
+        usa_states,
+        start=None,
+        end=None,
+        is_train=True,
+    ):
         self.data = data
         self.holidays = holidays
         self.holidays_2021 = holidays_2021
         self.inflation = inflation
         self.events = events
-        self.add_total_sales()
-        self.df = data.groupby(data.index)["total_sales"].sum()
-        self.df = self.generate_time_features(self.df)
-        self.df = self.df[self.df["year"] < 2023]
+        self.usa_states = usa_states
+        self.is_train = is_train
+        if is_train:
+            self.add_total_sales()
+            self.df = data.groupby(data.index)["total_sales"].sum()
+        else:
+            self.df = pd.DataFrame(pd.date_range(start, end), columns=["Order Date"])
+
+        self.generate_time_features()
         self.add_amazon_events()
         self.add_holidays()
-        self.add_states()
         self.add_previous_sales()
         self.add_inflation()
 
@@ -50,10 +67,82 @@ class FeatureEngineering:
             self.data["Purchase Price Per Unit"] * self.data["Quantity"]
         )
 
+    def get_feature_columns(self):
+        salesdf_columns = list(self.df.columns)
+        if not self.is_train:
+            salesdf_columns = list(self.data.columns)
+            [
+                salesdf_columns.remove(column)
+                for column in ["total_sales", "SS1", "SS2", "SS3"]
+            ]
+        return sorted(salesdf_columns)
+
     def add_previous_sales(self):
-        self.df["Sales 1YA"] = self.assign_historic_sales(self.df, year_till=2021)
-        self.df["Sales 2YA"] = self.assign_historic_sales(self.df, year_till=2020)
-        self.df["Sales 3YA"] = self.assign_historic_sales(self.df, year_till=2019)
+        if self.is_train:
+            self.df["Sales 1YA"] = self.assign_historic_sales(self.df, year_till=2021)
+            self.df["Sales 2YA"] = self.assign_historic_sales(self.df, year_till=2020)
+            self.df["Sales 3YA"] = self.assign_historic_sales(self.df, year_till=2019)
+            self.add_states_lags()
+        else:
+            combined_df = self.data.copy()
+            self.df["forcasting"] = True
+            combined_df["forcasting"] = False
+
+            combined_df = pd.concat([combined_df, self.df], axis=0)
+
+            combined_df["Sales 1YA"] = self.assign_historic_sales(
+                combined_df, year_till=2022
+            )
+            combined_df["Sales 2YA"] = self.assign_historic_sales(
+                combined_df, year_till=2021
+            )
+            combined_df["Sales 3YA"] = self.assign_historic_sales(
+                combined_df, year_till=2020
+            )
+
+            combined_df[["SS1 1YA", "SS2 1YA", "SS3 1YA"]] = combined_df[
+                ["SS1", "SS2", "SS3"]
+            ].shift(self.get_shift_value(2022, is_forcast=True))
+            combined_df[["SS1 2YA", "SS2 2YA", "SS3 2YA"]] = combined_df[
+                ["SS1", "SS2", "SS3"]
+            ].shift(self.get_shift_value(2021, is_forcast=True))
+            combined_df[["SS1 3YA", "SS2 3YA", "SS3 3YA"]] = combined_df[
+                ["SS1", "SS2", "SS3"]
+            ].shift(self.get_shift_value(2020, is_forcast=True))
+
+            self.df[
+                [
+                    "Sales 1YA",
+                    "Sales 2YA",
+                    "Sales 3YA",
+                    "SS1 1YA",
+                    "SS2 1YA",
+                    "SS3 1YA",
+                    "SS1 2YA",
+                    "SS2 2YA",
+                    "SS3 2YA",
+                    "SS1 3YA",
+                    "SS2 3YA",
+                    "SS3 3YA",
+                ]
+            ] = combined_df[combined_df["forcasting"] == True][
+                [
+                    "Sales 1YA",
+                    "Sales 2YA",
+                    "Sales 3YA",
+                    "SS1 1YA",
+                    "SS2 1YA",
+                    "SS3 1YA",
+                    "SS1 2YA",
+                    "SS2 2YA",
+                    "SS3 2YA",
+                    "SS1 3YA",
+                    "SS2 3YA",
+                    "SS3 3YA",
+                ]
+            ]
+
+            self.df = self.df.drop("forcasting", axis=1)
 
     def add_amazon_events(self):
         self.df = pd.merge(
@@ -62,12 +151,6 @@ class FeatureEngineering:
 
         self.df["Amazon Events"] = self.df["Amazon Events"].fillna("No Events")
         self.df = pd.get_dummies(self.df, drop_first=True)
-        if (
-            not pd.Series(self.df.index.year.isin([2024, 2025, 2026]))
-            .value_counts()
-            .index[0]
-        ):
-            self.df["Amazon Events_Big Spring Sale"] = False
 
     def add_inflation(self):
         self.inflation["observation_date"] = pd.to_datetime(
@@ -76,63 +159,15 @@ class FeatureEngineering:
         self.inflation = self.inflation.rename(
             columns={"T10YIEM": "inflation_rate"}
         ).set_index("observation_date")
-
         self.df = pd.merge(
             self.df, self.inflation, left_index=True, right_index=True, how="left"
         )
-
         self.df["inflation_rate"] = self.df["inflation_rate"].interpolate()
-
-    def add_states(self):
-        states_list = list(
-            self.data[self.data.index.year < 2023]["Shipping Address State"]
-            .dropna().sort_values()
-            .unique()
-        )
-        statesdf = pd.DataFrame(
-            data=dict(zip(range(len(states_list)), [0] * len(states_list))),
-            index=range(len(states_list)),
-        )
-        statesdf = statesdf.iloc[0:1]
-
-        def add_state_features(state_included_by_date):
-            nonlocal statesdf
-            statesdf = pd.concat(
-                [
-                    statesdf,
-                    pd.DataFrame(
-                        pd.Series(states_list)
-                        .map(
-                            dict(
-                                zip(
-                                    list(state_included_by_date), [1] * len(states_list)
-                                )
-                            )
-                        )
-                        .fillna(0)
-                        .astype(int)
-                    ).transpose(),
-                ],
-                axis=0,
+        if not self.is_train:
+            self.df = pd.concat(
+                [self.data.iloc[-30:][self.get_feature_columns()], self.df], axis=0
             )
-
-        np.vectorize(lambda states_list: add_state_features(states_list))(
-            self.data[self.data.index.year < 2023]
-            .groupby(["Order Date"])["Shipping Address State"]
-            .unique()
-        )
-        statesdf.index = range(len(statesdf.index))
-        statesdf = statesdf.iloc[2:]
-        statesdf.index = range(len(statesdf.index))
-        statesdf.columns = states_list
-        
-        self.df = pd.merge(
-            self.df.reset_index(),
-            statesdf,
-            left_index=True,
-            right_index=True,
-            how="left",
-        ).set_index("Order Date")
+        self.df = self.df.reindex(self.get_feature_columns(), axis=1)
 
     def assign_historic_sales(self, df, year_till=2022):
         df = df.reset_index()
@@ -145,8 +180,8 @@ class FeatureEngineering:
         df = df.set_index("Order Date")
         return lag
 
-    def generate_time_features(self, df):
-        df = df.reset_index()
+    def generate_time_features(self):
+        df = self.df.reset_index()
         df.loc[:, "day"] = df["Order Date"].dt.day
         df.loc[:, "month"] = df["Order Date"].dt.month
         df.loc[:, "year"] = df["Order Date"].dt.year
@@ -159,7 +194,81 @@ class FeatureEngineering:
         df.loc[:, "is_year_start"] = df["Order Date"].dt.is_year_start
         df.loc[:, "is_year_end"] = df["Order Date"].dt.is_year_end
         df = df.set_index("Order Date")
-        return df
+        if self.is_train:
+            self.df = df[df["year"] < 2023]
+        else:
+            self.df = df
+
+    def get_shift_value(self, year, is_forcast=False):
+
+        if not is_forcast:
+            return (
+                self.df[self.df.index.year < 2023].index[-1]
+                - self.df[self.df.index.year <= year].index[-1]
+            ).days - 10
+        else:
+            return (
+                self.df.index[-1] - self.data[self.data.index.year <= year].index[-1]
+            ).days - 10
+
+    def add_states_lags(self):
+
+        temp_df = self.data[
+            ["Shipping Address State", "Category", "total_sales"]
+        ].copy()
+
+        temp_df = pd.DataFrame(
+            temp_df.groupby([temp_df.index, "Shipping Address State"])[
+                "total_sales"
+            ].sum()
+        ).reset_index()
+
+        states_features = (
+            pd.pivot(
+                temp_df[["Order Date", "Shipping Address State", "total_sales"]],
+                index="Order Date",
+                columns="Shipping Address State",
+                values="total_sales",
+            )
+            .reset_index()
+            .fillna(0)
+        )
+
+        states_features = states_features.set_index("Order Date")
+
+        scaler = MinMaxScaler()
+
+        scaled_data = scaler.fit_transform(states_features)
+
+        pca = PCA(n_components=3, random_state=101)
+
+        pca_features = pca.fit_transform(scaled_data)
+
+        state_sales_reduced = pd.DataFrame(pca_features)
+
+        state_sales_reduced.rename(columns={0: "SS1", 1: "SS2", 2: "SS3"}, inplace=True)
+
+        state_sales_reduced.set_index(self.df.index, inplace=True)
+
+        states_features = pd.concat(
+            [
+                state_sales_reduced,
+                state_sales_reduced.shift(self.get_shift_value(2021)).rename(
+                    columns={"SS1": "SS1 1YA", "SS2": "SS2 1YA", "SS3": "SS3 1YA"}
+                ),
+                state_sales_reduced.shift(self.get_shift_value(2020)).rename(
+                    columns={"SS1": "SS1 2YA", "SS2": "SS2 2YA", "SS3": "SS3 2YA"}
+                ),
+                state_sales_reduced.shift(self.get_shift_value(2019)).rename(
+                    columns={"SS1": "SS1 3YA", "SS2": "SS2 3YA", "SS3": "SS3 3YA"}
+                ),
+            ],
+            axis=1,
+        )
+
+        self.df = pd.merge(
+            self.df, states_features, left_index=True, right_index=True, how="left"
+        )
 
     def output(self):
         return self.df

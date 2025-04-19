@@ -2,27 +2,23 @@ import pandas as pd
 
 
 class DataPreprocessor:
-    def __init__(self, purchases, categories, products):
-        self.purchases = purchases
-        self.categories = categories
-        self.products = products
+    def __init__(self, df):
+        self.df = df
+        self.set_index()
+        if "Shipping Address State" in df.columns:
+            self.remove_null_values()
 
-        self.rename_columns()
-        self.drop_unnecessary_columns()
-
-    def rename_columns(self):
-        # Rename columns for better readability
-        self.purchases.rename(
-            columns={"ASIN/ISBN (Product Code)": "product_code"}, inplace=True
-        )
-        self.products.rename(columns={"asin": "product_code"}, inplace=True)
-
-    def drop_unnecessary_columns(self):
+    def set_index(self):
+        self.df["Order Date"] = pd.to_datetime(self.df["Order Date"])
+        self.df.set_index("Order Date", inplace=True)
+        self.df = self.df[self.df.index.year<2023]
+        
+    def remove_null_values(self):
         # Drop unnecessary columns
-        self.purchases.drop(columns=["product_code", "Survey ResponseID"], inplace=True)
-
+        self.df = self.df[
+            self.df["Shipping Address State"].notnull()
+        ]
 
     def output(self):
         # Output the processed data
-        self.purchases["Order Date"] = pd.to_datetime(self.purchases["Order Date"])
-        return self.purchases.set_index("Order Date")
+        return self.df

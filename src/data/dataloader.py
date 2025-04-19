@@ -11,12 +11,6 @@ class DataLoader:
         self.purchases = self.fetch_data(
             "1HdJj68eO9NTZlpwZcLYqdtPqrbKs1cxj", "amazon_purchases.csv"
         )
-        self.products = self.fetch_data(
-            "1yoaKl-7wctxH315gH_M15fS5WERnFlHe", "amazon_products.csv"
-        )
-        self.categories = self.fetch_data(
-            "19167R4OV0GWNiCHTh3w9T07616S91enj", "amazon_categories.csv"
-        )
         self.holidays = self.load_holidays()
         self.inflation = self.fetch_data(
             "1uuTBlEA2caOIyv4-R_G2OlekBCw-i_Le", "inflation.csv"
@@ -26,12 +20,6 @@ class DataLoader:
 
     def purchases(self):
         return self.purchases
-
-    def products(self):
-        return self.products
-
-    def categories(self):
-        return self.categories
 
     def holidays(self):
         return self.holidays
@@ -44,6 +32,14 @@ class DataLoader:
 
     def holidays_past_2021(self):
         return self.holidays_past_2021
+    
+    def get_usa_states(self):
+        return list(
+            self.purchases["Shipping Address State"]
+            .dropna()
+            .sort_values()
+            .unique()
+        )
 
     def download_dataset(self, key, dataset_name):
         path = os.path.abspath(dataset_name)
@@ -59,22 +55,10 @@ class DataLoader:
         data = pd.read_csv(path)
         return data
 
-    def load_categories(self):
-        # Load the dataset from the given path
-        path = self.fetch_dataset()
-        data = pd.read_csv(path)
-        return data
-
     def load_holidays(self):
         # Load the dataset from the given path
         path = kagglehub.dataset_download("donnetew/us-holiday-dates-2004-2021")
         data = pd.read_csv(os.path.join(path, "US Holiday Dates (2004-2021).csv"))
-        return data
-
-    def load_inflations(self):
-        # Load the dataset from the given path
-        path = self.fetch_dataset("1uuTBlEA2caOIyv4-R_G2OlekBCw-i_Le", "inflation.csv")
-        data = pd.read_csv(path)
         return data
 
     def load_amazon_events(self):
@@ -142,7 +126,7 @@ class DataLoader:
             }
         ).set_index("Event Date")
 
-        amazon_events = self.add_repeating_events("2018-12-02", "2018-12-13")
+        amazon_events = self.add_events(("2018-12-02", "2018-12-13"), is_repeat=True)
         _12_day_of_deals_event_df = pd.DataFrame(
             {
                 "Event Date": amazon_events,
@@ -150,7 +134,7 @@ class DataLoader:
             }
         ).set_index("Event Date")
 
-        amazon_events = self.add_repeating_events("2018-12-26", "2018-12-31")
+        amazon_events = self.add_events(("2018-12-26", "2018-12-31"), is_repeat=True)
         year_end_clearance_event_df = pd.DataFrame(
             {
                 "Event Date": amazon_events,
@@ -171,13 +155,6 @@ class DataLoader:
         ).sort_index()
 
         return amazon_events_df
-
-    def add_events(self, events_timestamp_list):
-        dummy_date = "2017-04-10"
-        events = pd.DatetimeIndex([dummy_date])
-        for event in events_timestamp_list:
-            events = events.append(pd.date_range(start=event[0], end=event[1]))
-        return events[1:]
 
     def load_holidays_past_2021(self):
         _2022 = pd.Series(
@@ -264,23 +241,15 @@ class DataLoader:
         fedral_holdidays_22_plus = fedral_holdidays_22_plus.set_index("date")
         return fedral_holdidays_22_plus
 
-    def add_repeating_events(self, start, end):
-        _2018_events = pd.date_range(start=start, end=end)
-        _2019_events = _2018_events + pd.tseries.offsets.DateOffset(months=12)
-        _2020_events = _2019_events + pd.tseries.offsets.DateOffset(months=12)
-        _2021_events = _2020_events + pd.tseries.offsets.DateOffset(months=12)
-        _2022_events = _2021_events + pd.tseries.offsets.DateOffset(months=12)
-        _2023_events = _2022_events + pd.tseries.offsets.DateOffset(months=12)
-        _2024_events = _2023_events + pd.tseries.offsets.DateOffset(months=12)
-        _2025_events = _2024_events + pd.tseries.offsets.DateOffset(months=12)
-        _2026_events = _2025_events + pd.tseries.offsets.DateOffset(months=12)
-        return (
-            _2018_events.append(_2019_events)
-            .append(_2020_events)
-            .append(_2021_events)
-            .append(_2022_events)
-            .append(_2023_events)
-            .append(_2024_events)
-            .append(_2025_events)
-            .append(_2026_events)
-        )
+    def add_events(self, events_timestamps, is_repeat=False):
+        dummy_date = '2017-04-10'
+        events = pd.DatetimeIndex([dummy_date])
+        if is_repeat:
+            for i in range(len([2018,2019,2020,2021,2022,2023,2024,2025,2026])):
+                events = events.append(pd.date_range(start=events_timestamps[0], end=events_timestamps[1]) \
+                                    + pd.tseries.offsets.DateOffset(months=i*12))
+        else:
+            for event in events_timestamps:
+                events = events.append(pd.date_range(start=event[0], end=event[1]))
+        return events[1:]
+    
