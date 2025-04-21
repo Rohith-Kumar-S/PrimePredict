@@ -7,14 +7,22 @@ import gdown
 
 class DataLoader:
 
-    def __init__(self):
-        self.purchases = self.fetch_data(
-            "1HdJj68eO9NTZlpwZcLYqdtPqrbKs1cxj", "amazon_purchases.csv"
-        )
+    def __init__(self, is_training=True):
+        self.purchases = None
+        self.products = None
+        self.categories = None
+        if is_training:
+            self.purchases = self.fetch_data(
+                "1HdJj68eO9NTZlpwZcLYqdtPqrbKs1cxj", "amazon_purchases.csv"
+            )
+            self.products = self.fetch_data(
+                "1yoaKl-7wctxH315gH_M15fS5WERnFlHe", "amazon_products.csv"
+            )
+            self.categories = self.fetch_data(
+                "19167R4OV0GWNiCHTh3w9T07616S91enj", "product_categories.csv"
+            )
         self.holidays = self.load_holidays()
-        self.inflation = self.fetch_data(
-            "1uuTBlEA2caOIyv4-R_G2OlekBCw-i_Le", "inflation.csv"
-        )
+
         self.amazon_events = self.load_amazon_events()
         self.holidays_past_2021 = self.load_holidays_past_2021()
 
@@ -24,22 +32,17 @@ class DataLoader:
     def holidays(self):
         return self.holidays
 
-    def inflation(self):
-        return self.inflation
+    def products(self):
+        return self.products
+
+    def categories(self):
+        return self.categories
 
     def amazon_events(self):
         return self.amazon_events
 
     def holidays_past_2021(self):
         return self.holidays_past_2021
-    
-    def get_usa_states(self):
-        return list(
-            self.purchases["Shipping Address State"]
-            .dropna()
-            .sort_values()
-            .unique()
-        )
 
     def download_dataset(self, key, dataset_name):
         path = os.path.abspath(dataset_name)
@@ -242,14 +245,15 @@ class DataLoader:
         return fedral_holdidays_22_plus
 
     def add_events(self, events_timestamps, is_repeat=False):
-        dummy_date = '2017-04-10'
+        dummy_date = "2017-04-10"
         events = pd.DatetimeIndex([dummy_date])
         if is_repeat:
-            for i in range(len([2018,2019,2020,2021,2022,2023,2024,2025,2026])):
-                events = events.append(pd.date_range(start=events_timestamps[0], end=events_timestamps[1]) \
-                                    + pd.tseries.offsets.DateOffset(months=i*12))
+            for i in range(len([2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025, 2026])):
+                events = events.append(
+                    pd.date_range(start=events_timestamps[0], end=events_timestamps[1])
+                    + pd.tseries.offsets.DateOffset(months=i * 12)
+                )
         else:
             for event in events_timestamps:
                 events = events.append(pd.date_range(start=event[0], end=event[1]))
         return events[1:]
-    

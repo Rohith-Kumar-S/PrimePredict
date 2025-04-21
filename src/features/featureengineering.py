@@ -10,9 +10,7 @@ class FeatureEngineering:
         data,
         holidays,
         holidays_2021,
-        inflation,
         events,
-        usa_states,
         start=None,
         end=None,
         is_train=True,
@@ -20,9 +18,7 @@ class FeatureEngineering:
         self.data = data
         self.holidays = holidays
         self.holidays_2021 = holidays_2021
-        self.inflation = inflation
         self.events = events
-        self.usa_states = usa_states
         self.is_train = is_train
         if is_train:
             self.add_total_sales()
@@ -34,7 +30,6 @@ class FeatureEngineering:
         self.add_amazon_events()
         self.add_holidays()
         self.add_previous_sales()
-        self.add_inflation()
 
     def add_holidays(self):
         self.holidays["Date"] = pd.to_datetime(self.holidays["Date"])
@@ -143,6 +138,7 @@ class FeatureEngineering:
             ]
 
             self.df = self.df.drop("forcasting", axis=1)
+        self.df = self.df.reindex(self.get_feature_columns(), axis=1)
 
     def add_amazon_events(self):
         self.df = pd.merge(
@@ -151,23 +147,6 @@ class FeatureEngineering:
 
         self.df["Amazon Events"] = self.df["Amazon Events"].fillna("No Events")
         self.df = pd.get_dummies(self.df, drop_first=True)
-
-    def add_inflation(self):
-        self.inflation["observation_date"] = pd.to_datetime(
-            self.inflation["observation_date"]
-        )
-        self.inflation = self.inflation.rename(
-            columns={"T10YIEM": "inflation_rate"}
-        ).set_index("observation_date")
-        self.df = pd.merge(
-            self.df, self.inflation, left_index=True, right_index=True, how="left"
-        )
-        self.df["inflation_rate"] = self.df["inflation_rate"].interpolate()
-        if not self.is_train:
-            self.df = pd.concat(
-                [self.data.iloc[-30:][self.get_feature_columns()], self.df], axis=0
-            )
-        self.df = self.df.reindex(self.get_feature_columns(), axis=1)
 
     def assign_historic_sales(self, df, year_till=2022):
         df = df.reset_index()

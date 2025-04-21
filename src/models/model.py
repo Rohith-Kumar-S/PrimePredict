@@ -1,5 +1,6 @@
 from sklearn.model_selection import TimeSeriesSplit
 import xgboost as xgb
+from catboost import CatBoostRegressor
 from sklearn.metrics import mean_squared_error
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -8,18 +9,19 @@ import numpy as np
 
 class Model:
 
-    def __init__(self, model_path=None):
-        self.model = None
-        if model_path:
-            self.model = xgb.XGBRegressor()
-            try:
-                self.model.load_model(model_path)
-            except xgb.core.XGBoostError as e:
-                print(f"Error loading model: {e}")
-                self.model = None
-            
+    def __init__(self):
+        self.models = []
+        self.models.append(xgb.XGBRegressor())
+        self.models.append(CatBoostRegressor())
+        try:
+            self.models[0].load_model("xgb.json")
+            self.models[1].load_model("cat.cbm")
+        except Exception as e:
+            print(f"Error loading model: {e}")
+            self.models = []
+
     def is_trained(self):
-        return self.model is not None
+        return not len(self.models) == 0
 
     def get_feature_columns(self, df):
         salesdf_columns = list(df.columns)
@@ -88,7 +90,7 @@ class Model:
         salesdf_columns = self.get_feature_columns(df)
         X_train = df[salesdf_columns]
         y_train = df["total_sales"]
-        reg_model = xgb.XGBRegressor(
+        xgb_model = xgb.XGBRegressor(
             base_score=0.5,
             booster="gblinear",
             n_estimators=400,
@@ -96,22 +98,36 @@ class Model:
             objective="reg:squarederror",
             learning_rate=0.01,
         )
-        reg_model.fit(
+        cat_model = CatBoostRegressor(
+            depth=3, l2_leaf_reg=2, learning_rate=0.01, n_estimators=1000, silent=True
+        )
+
+        xgb_model.fit(
             X_train,
             y_train,
             eval_set=[(X_train[salesdf_columns], y_train)],
             verbose=False,
         )
-        self.model = reg_model
-        reg_model.save_model("model.json")
+
+        cat_model.fit(
+            X_train,
+            y_train,
+            early_stopping_rounds=50,
+            verbose=False,
+        )
+        self.models.append(xgb_model)
+        self.models.append(cat_model)
+        xgb_model.save_model("xgb.json")
+        cat_model.save_model("cat.cbm")
 
     def predict(self, df):
         salesdf_columns = sorted(df.columns)
         X_test = df[salesdf_columns]
-        y_preds = self.model.predict(X_test)
-        return y_preds
-    
+        xgb_preds = self.models[0].predict(X_test)
+        cat_preds = self.models[1].predict(X_test)
+        return xgb_preds, cat_preds
+
     def get_feature_importance(self):
-        if self.model is None:
+        if len(self.models) == 0:
             raise ValueError("Model has not been trained yet.")
-        return self.model.feature_importances_
+        return self.model[0].feature_importances_, self.model[1].feature_importances_
