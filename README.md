@@ -13,6 +13,7 @@ From there, type streamlit run app.py to start the app.
 -- Done!
 
 Organization of modules:
+
 src/
 ├── app.py
 ├── main.py
