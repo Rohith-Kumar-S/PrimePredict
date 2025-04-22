@@ -4,6 +4,7 @@ from catboost import CatBoostRegressor
 from sklearn.metrics import mean_squared_error
 import pandas as pd
 import matplotlib.pyplot as plt
+from sklearn.model_selection import GridSearchCV
 import numpy as np
 import os
 
@@ -97,6 +98,15 @@ class SalesForecaster:
         salesdf_columns = self.get_feature_columns(df)
         X_train = df[salesdf_columns]
         y_train = df["total_sales"]
+
+        xgb_param_grid = {
+            "learning_rate": [0.01, 0.05, 0.1],
+            "lambda": [0, 0.1, 1],
+            "alpha": [0, 0.1, 1],
+            "n_estimators": [600, 800, 1000],
+            "updater": ["shotgun", "coord_descent"],
+        }
+
         xgb_model = xgb.XGBRegressor(
             base_score=0.5,
             booster="gblinear",
