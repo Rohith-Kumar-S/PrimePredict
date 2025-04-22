@@ -2,20 +2,113 @@ from preproccessing.datapreprocessing import DataPreprocessor
 from features.featureengineering import FeatureEngineering
 from data.dataloader import DataLoader
 import pandas as pd
-from models.model import Model
+from models.forcast import SalesForecaster
+import os
 
 
-def forcast(start_date, end_date, inflation_rate):
+def prepare_train_data(data, entity_name, is_state):
+
+    processed_data_path = os.path.join(os.getcwd(), "data", "processed_datasets")
+    if not "src" in processed_data_path:
+        processed_data_path = os.path.join(
+            os.getcwd(), "src", "data", "processed_datasets"
+        )
+
+    preprocessed_data = DataPreprocessor(
+        data.purchases, data.products, data.categories, entity_to_forcast=entity_name, is_state=is_state
+    ).output()
+
+    df = FeatureEngineering(
+        preprocessed_data,
+        data.holidays_past_2021,
+        data.amazon_events,
+        holidays=data.holidays,
+        state_forcast=is_state,
+    ).output()
+
+    df.reset_index(inplace=True)
+    if entity_name == '':
+        df.to_csv(os.path.join(processed_data_path, "overall_sales.csv"), index=False)
+    else:
+        df.to_csv(
+            os.path.join(processed_data_path, f"{entity_name}_sales.csv"), index=False
+        )
+    print("Data preprocessed and saved")
+    df.set_index("Order Date", inplace=True)
+    return df
+
+
+def process_results(
+    start_year,
+    end_year,
+    forcast_df,
+    xgb_preds,
+    cat_preds,
+    overall_sales,
+):
+    print("Processing results...")
+
+    return (
+        pd.DataFrame(
+            {
+                "dates": forcast_df.index,
+                "Sales Prediction - xbg": xgb_preds,
+                "Sales Prediction - cat": cat_preds,
+            }
+        ),
+        overall_sales[overall_sales.index.year > (2021 - int(end_year - start_year))][
+            "total_sales"
+        ],
+        int(end_year - start_year),
+    )
+
+
+def get_state_and_categories_by_frequency(data):
+    preprocessed_data = DataPreprocessor(
+        data.purchases, data.products, data.categories
+    ).output()
+    states_frequencies = (
+        preprocessed_data.groupby([preprocessed_data.index, "Shipping Address State"])[
+            "total_sales"
+        ]
+        .sum()
+        .reset_index()["Shipping Address State"]
+        .value_counts()
+        .sort_values(ascending=False)
+        .index
+    )
+    category_frequencies = (
+        preprocessed_data.groupby([preprocessed_data.index, "Category"])["total_sales"]
+        .sum()
+        .reset_index()["Category"]
+        .value_counts()
+        .sort_values(ascending=False)
+        .index
+    )
+    return list(states_frequencies), list(category_frequencies)
+
+
+def forcast(start_date, end_date, data, entity_name='', is_state=None):
 
     cross_validate = False
+    processed_data_path = os.path.join(os.getcwd(), "data", "processed_datasets")
 
-    if Model().is_trained():
+    if SalesForecaster(entity_name).is_trained():
         print("Model already trained.")
         data = DataLoader(is_training=False)
-        model = Model()
+        model = SalesForecaster(entity_name)
+        if entity_name is '':
+            overall_sales = DataPreprocessor(
+                pd.read_csv(os.path.join(processed_data_path, "overall_sales.csv"))
+            ).output()
+        else:
+            overall_sales = DataPreprocessor(
+                pd.read_csv(
+                    os.path.join(processed_data_path, f"{entity_name}_sales.csv")
+                )
+            ).output()
         forcast_df = FeatureEngineering(
-            DataPreprocessor(pd.read_csv("processed_data.csv")).output(),
-            data.holidays,
+            overall_sales,
             data.holidays_past_2021,
             data.amazon_events,
             is_train=False,
@@ -23,48 +116,37 @@ def forcast(start_date, end_date, inflation_rate):
             end=end_date,
         ).output()
         xgb_preds, cat_preds = model.predict(forcast_df)
-        return pd.DataFrame(
-            {
-                "dates": forcast_df.index,
-                "xgb predictions": xgb_preds,
-                "cat predictions": cat_preds,
-            }
+        # ca_xgb_preds, ca_cat_preds = model.predict(ca_forcast_df, state_name="CA")
+        # ga_xgb_preds, ga_cat_preds = model.predict(ga_forcast_df, state_name="GA")
+        return process_results(
+            pd.to_datetime(start_date).year,
+            pd.to_datetime(end_date).year,
+            forcast_df,
+            xgb_preds,
+            cat_preds,
+            overall_sales,
         )
 
     else:
         print("Model not trained. Training now...")
-        data = DataLoader(is_training=True)
-        preprocessed_data = DataPreprocessor(
-            data.purchases, data.products, data.categories
-        ).output()
-
-        df = FeatureEngineering(
-            preprocessed_data,
-            data.holidays,
-            data.holidays_past_2021,
-            data.amazon_events
-        ).output()
-
-        df.reset_index(inplace=True)
-        df.to_csv("processed_data.csv", index=False)
-        print("Data preprocessed and saved to processed_data.csv")
-        df.set_index("Order Date", inplace=True)
+        df = prepare_train_data(data, entity_name, is_state)
 
         if cross_validate:
             forcast_df = FeatureEngineering(
-                DataPreprocessor(pd.read_csv("processed_data.csv")).output(),
-                data.holidays,
+                DataPreprocessor(pd.read_csv("overall_sales.csv")).output(),
                 data.holidays_past_2021,
                 data.amazon_events,
                 is_train=False,
                 start="2023-01-01",
                 end="2023-12-31",
             ).output()
-            Model().cross_validate(df, forcast_df, forcast_df.columns)
+            SalesForecaster().cross_validate(df, forcast_df, forcast_df.columns)
 
-        Model().train(df)
+        SalesForecaster(entity_name).train(df, entity_name=entity_name)
         print("Model trained and saved to model.json")
+        return None, None, None
 
 
 if __name__ == "__main__":
-    print(forcast("2023-01-01", "2023-12-31", 0.03))
+    # print(forcast("2023-01-01", "2023-12-31"))
+    print(get_state_and_categories_by_frequency())

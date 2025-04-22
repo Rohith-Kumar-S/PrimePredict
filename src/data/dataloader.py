@@ -21,7 +21,7 @@ class DataLoader:
             self.categories = self.fetch_data(
                 "19167R4OV0GWNiCHTh3w9T07616S91enj", "product_categories.csv"
             )
-        self.holidays = self.load_holidays()
+            self.holidays = self.load_holidays()
 
         self.amazon_events = self.load_amazon_events()
         self.holidays_past_2021 = self.load_holidays_past_2021()
@@ -45,9 +45,11 @@ class DataLoader:
         return self.holidays_past_2021
 
     def download_dataset(self, key, dataset_name):
-        path = os.path.abspath(dataset_name)
+        path = os.path.join(os.getcwd(), "data", "raw_datasets", dataset_name)
+        if not 'src' in path:
+            path = os.path.join(os.getcwd(), "src", "data", "raw_datasets", dataset_name)
         if not os.path.exists(path):
-            cmd = f"gdown --fuzzy {key} -O {dataset_name}"
+            cmd = f"gdown --fuzzy {key} -O {path}"  
             subprocess.run(cmd, shell=True, check=True)
         print(f"Loading>> {dataset_name} path: {path}")
         return path

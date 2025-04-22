@@ -5,17 +5,27 @@ from sklearn.metrics import mean_squared_error
 import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
+import os
 
 
-class Model:
+class SalesForecaster:
 
-    def __init__(self):
+    def __init__(self, entity_name=""):
         self.models = []
         self.models.append(xgb.XGBRegressor())
         self.models.append(CatBoostRegressor())
+        models_path = os.path.join(os.getcwd(), "models", "saves")
+        if not "src" in models_path:
+            models_path = os.path.join(os.getcwd(), "src", "models", "saves")
+        if not entity_name == "":
+            entity_name = f"{entity_name}_"
         try:
-            self.models[0].load_model("xgb.json")
-            self.models[1].load_model("cat.cbm")
+            self.models[0].load_model(
+                os.path.join(models_path, f"{entity_name}xgb.json")
+            )
+            self.models[1].load_model(
+                os.path.join(models_path, f"{entity_name}cat.cbm")
+            )
         except Exception as e:
             print(f"Error loading model: {e}")
             self.models = []
@@ -25,10 +35,7 @@ class Model:
 
     def get_feature_columns(self, df):
         salesdf_columns = list(df.columns)
-        [
-            salesdf_columns.remove(column)
-            for column in ["total_sales", "SS1", "SS2", "SS3"]
-        ]
+        [salesdf_columns.remove(column) for column in ["total_sales", "S1", "S2", "S3"]]
         return sorted(salesdf_columns)
 
     def cross_validate(self, df, forcastdf, salesdf_columns):
@@ -86,7 +93,7 @@ class Model:
 
         return preds, scores, feature_importances
 
-    def train(self, df):
+    def train(self, df, entity_name=""):
         salesdf_columns = self.get_feature_columns(df)
         X_train = df[salesdf_columns]
         y_train = df["total_sales"]
@@ -98,8 +105,14 @@ class Model:
             objective="reg:squarederror",
             learning_rate=0.01,
         )
+        n_estimators = 800 if entity_name == "CA" else 1000
+
         cat_model = CatBoostRegressor(
-            depth=3, l2_leaf_reg=2, learning_rate=0.01, n_estimators=1000, silent=True
+            depth=3,
+            l2_leaf_reg=2,
+            learning_rate=0.01,
+            n_estimators=n_estimators,
+            silent=True,
         )
 
         xgb_model.fit(
@@ -117,12 +130,18 @@ class Model:
         )
         self.models.append(xgb_model)
         self.models.append(cat_model)
-        xgb_model.save_model("xgb.json")
-        cat_model.save_model("cat.cbm")
+        save_file_name = "" if entity_name == "" else f"{entity_name}_"
+        save_path = os.path.join(os.getcwd(), "models", "saves")
+        if not "src" in save_path:
+            save_path = os.path.join(os.getcwd(), "src", "models", "saves")
+        print("saves: ", os.path.join(save_path, f"{save_file_name}xgb.json"))
+        xgb_model.save_model(os.path.join(save_path, f"{save_file_name}xgb.json"))
+        cat_model.save_model(os.path.join(save_path, f"{save_file_name}cat.cbm"))
 
     def predict(self, df):
         salesdf_columns = sorted(df.columns)
         X_test = df[salesdf_columns]
+
         xgb_preds = self.models[0].predict(X_test)
         cat_preds = self.models[1].predict(X_test)
         return xgb_preds, cat_preds
