@@ -7,6 +7,11 @@ from data.dataloader import DataLoader
 
 locale.setlocale(locale.LC_ALL, "en_US.UTF-8")
 
+st.set_page_config(
+    page_title="PrimeForecast",  
+    page_icon="🌟"  
+)
+
 if "btn1_clicked" not in st.session_state:
     st.session_state.btn1_clicked = False
     data = DataLoader(is_training=True)
