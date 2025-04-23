@@ -2,12 +2,21 @@ import pandas as pd
 import os
 import kagglehub
 import subprocess
-import gdown
 
 
 class DataLoader:
+    """DataLoader is a class that loads and preprocesses data for sales forecasting.
+    It fetches data from Google Drive and Kaggle, and loads holiday data."""
 
     def __init__(self, is_training=True):
+        """__init__ initializes the DataLoader class and loads the datasets.
+        It fetches the purchases, products, categories, and holidays data from Google Drive and Kaggle.
+
+        Args:
+            is_training (bool, optional): if True, fetches training data. Defaults to True.
+            If False, fetches data for testing.
+        """
+
         self.purchases = None
         self.products = None
         self.categories = None
@@ -27,29 +36,46 @@ class DataLoader:
         self.holidays_past_2021 = self.load_holidays_past_2021()
 
     def purchases(self):
+        """purchases returns the purchases data loaded from Google Drive."""
         return self.purchases
 
     def holidays(self):
+        """holidays returns the holidays data loaded from Kaggle."""
         return self.holidays
 
     def products(self):
+        """products returns the products data loaded from Google Drive."""
         return self.products
 
     def categories(self):
+        """categories returns the categories data loaded from Google Drive."""
         return self.categories
 
     def amazon_events(self):
+        """amazon_events returns the amazon events data loaded locally"""
         return self.amazon_events
 
     def holidays_past_2021(self):
+        """holidays_past_2021 returns the holidays data for 2022 and beyond."""
         return self.holidays_past_2021
 
     def download_dataset(self, key, dataset_name):
+        """download_dataset downloads the dataset from Google Drive using gdown.
+
+        Args:
+            key (_type_): _gdown key for the dataset to be downloaded_
+            dataset_name (_type_): _name of the dataset to be downloaded_
+
+        Returns:
+            _type_: _path: _path to the downloaded dataset_
+        """
         path = os.path.join(os.getcwd(), "data", "raw_datasets", dataset_name)
-        if not 'src' in path:
-            path = os.path.join(os.getcwd(), "src", "data", "raw_datasets", dataset_name)
+        if not "src" in path:
+            path = os.path.join(
+                os.getcwd(), "src", "data", "raw_datasets", dataset_name
+            )
         if not os.path.exists(path):
-            cmd = f"gdown --fuzzy {key} -O {path}"  
+            cmd = f"gdown --fuzzy {key} -O {path}"
             subprocess.run(cmd, shell=True, check=True)
         print(f"Loading>> {dataset_name} path: {path}")
         return path
@@ -162,6 +188,7 @@ class DataLoader:
         return amazon_events_df
 
     def load_holidays_past_2021(self):
+        """Load the dataset from the given path"""
         _2022 = pd.Series(
             [
                 "2022-12-26",
@@ -247,6 +274,7 @@ class DataLoader:
         return fedral_holdidays_22_plus
 
     def add_events(self, events_timestamps, is_repeat=False):
+        """add_events adds events to the dataframe."""
         dummy_date = "2017-04-10"
         events = pd.DatetimeIndex([dummy_date])
         if is_repeat:

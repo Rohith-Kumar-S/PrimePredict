@@ -5,6 +5,10 @@ from sklearn.decomposition import PCA
 
 
 class FeatureEngineering:
+    """FeatureEngineering is a class that handles the feature engineering process for sales forecasting.
+    It generates time features, adds holidays, Amazon events, and previous sales data to the dataset.
+    """
+
     def __init__(
         self,
         data,
@@ -33,6 +37,7 @@ class FeatureEngineering:
         self.add_previous_sales()
 
     def add_holidays(self):
+        """add_holidays adds holiday information to the dataset."""
         if self.is_train:
             self.holidays["Date"] = pd.to_datetime(self.holidays["Date"])
             self.holidays["is_holiday"] = True
@@ -61,8 +66,8 @@ class FeatureEngineering:
             self.df.rename(columns={"holiday": "fedral_holiday"}, inplace=True)
             self.df["fedral_holiday"] = self.df["fedral_holiday"].fillna(False)
 
-
     def get_feature_columns(self):
+        """get_feature_columns returns the list of feature columns in the dataset."""
         salesdf_columns = list(self.df.columns)
         if not self.is_train:
             salesdf_columns = list(self.data.columns)
@@ -73,6 +78,15 @@ class FeatureEngineering:
         return sorted(salesdf_columns)
 
     def add_previous_sales(self):
+        """_summary__ adds previous sales data to the dataset.
+        It creates lag features for the sales data based on the previous years.
+        It also adds PCA features for the sales data based on the previous years.
+        It uses the assign_historic_sales method to create lag features for the
+        sales data.
+        It uses the processed dataset to create PCA features for the sales data
+        incase of forecasting.
+        """
+
         if self.is_train:
             self.df["Sales 1YA"] = self.assign_historic_sales(self.df, year_till=2021)
             self.df["Sales 2YA"] = self.assign_historic_sales(self.df, year_till=2020)
@@ -148,6 +162,18 @@ class FeatureEngineering:
         self.df = pd.get_dummies(self.df, drop_first=True)
 
     def assign_historic_sales(self, df, year_till=2022):
+        """assign_historic_sales assigns historic sales data to the dataset.
+
+        Args:
+            df (_type_): dataframe to assign historic sales data to.
+            year_till (int, optional): compute lags till this year. Defaults to 2022.
+            it computes the sales till the specified year and shifts its down so that the
+            upper data is NaN, procviding context to the model that there was no previous
+            sales for that specific date.
+
+        Returns:
+            _type_: _description_
+        """
         df = df.reset_index()
         sales = df[["Order Date", "total_sales"]]
         sales = sales.set_index("Order Date")
@@ -159,6 +185,10 @@ class FeatureEngineering:
         return lag
 
     def generate_time_features(self):
+        """generate_time_features generates time features for the dataset.
+        It creates features such as day, month, year, is_weekend, day_of_week, day_of_year,etc;
+        """
+        
         df = self.df.reset_index()
         df.loc[:, "day"] = df["Order Date"].dt.day
         df.loc[:, "month"] = df["Order Date"].dt.month
@@ -190,6 +220,11 @@ class FeatureEngineering:
             ).days - 10
 
     def add_lags_pca(self):
+        """add_lags_pca adds PCA features to the dataset.
+        It uses the PCA algorithm to reduce the dimensionality of the sales data and creates lag features for the PCA components.
+        For state forecasting, it uses the Product Category columns to create features.
+        For category and overall sales forecasting, it uses the Shipping Address State columns to create features.
+        """
 
         temp_df = self.data[
             ["Shipping Address State", "Category", "total_sales"]
@@ -263,4 +298,9 @@ class FeatureEngineering:
         )
 
     def output(self):
+        """output returns the final dataframe with all the features and target variable.
+
+        Returns:
+            _type_: DataFrame: final dataframe with all the features and target variable.
+        """
         return self.df

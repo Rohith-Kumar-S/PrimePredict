@@ -5,14 +5,12 @@ import numpy as np
 import locale
 from data.dataloader import DataLoader
 
-# locale.setlocale(locale.LC_ALL, "en_US.UTF-8")
-locale.setlocale(locale.LC_ALL, "")
+locale.setlocale(locale.LC_ALL, "en_US.UTF-8")
 
-st.set_page_config(
-    page_title="PrimeForecast",  
-    page_icon="🌟"  
-)
+st.set_page_config(page_title="PrimeForecast", page_icon="🌟")
 
+
+# intialize session state variables
 if "btn1_clicked" not in st.session_state:
     st.session_state.btn1_clicked = False
     data = DataLoader(is_training=True)
@@ -24,9 +22,10 @@ if "btn2_clicked" not in st.session_state:
 if "btn3_clicked" not in st.session_state:
     st.session_state.btn3_clicked = False
 
+# Set the title of the app
 st.title("Amazon Sales Forecast")
 
-
+# Date input for selecting the range to forecast
 start = datetime.date(2023, 1, 1)
 temp = datetime.date(2023, 12, 31)
 end = datetime.date(2025, 12, 31)
@@ -43,11 +42,12 @@ end_date = None
 if len(date_range) == 2:
     start_date = f"{date_range[0].year}-{date_range[0].month}-{date_range[0].day}"
     end_date = f"{date_range[1].year}-{date_range[1].month}-{date_range[1].day}"
-# Button 1 logic
+
+
 if st.button("Forecast Overall Sales"):
     st.session_state.btn1_clicked = True
 
-
+# if forcast button is clicked, call the forcast function
 if st.session_state.btn1_clicked:
     prediction_df, previous_sales, years = forcast(
         start_date, end_date, st.session_state.data_training
@@ -76,10 +76,11 @@ us_state_selected = st.selectbox(
     states,
 )
 
-# Button 2 logic
+
 if st.button("Forecast State Sales"):
     st.session_state.btn2_clicked = True
 
+# if forcast by states button is clicked, call the forcast function
 if st.session_state.btn2_clicked:
     print(us_state_selected)
     prediction_df, previous_sales, years = forcast(
@@ -115,6 +116,7 @@ category_selected = st.selectbox(
 if st.button("Forecast Category Sales"):
     st.session_state.btn3_clicked = True
 
+# if forcast by category button is clicked, call the forcast function
 if st.session_state.btn3_clicked:
     print(category_selected)
     prediction_df, previous_sales, years = forcast(

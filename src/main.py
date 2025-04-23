@@ -11,12 +11,12 @@ def prepare_train_data(data, entity_name, is_state):
     It saves the processed data to a CSV file in the processed_datasets directory.
 
     Args:
-        data (_type_): _description_
-        entity_name (_type_): _description_
-        is_state (bool): _description_
+        data (_type_): data object containing purchases, products, categories, holidays_past_2021, and amazon_events
+        entity_name (_type_): state or category name to forecast
+        is_state (bool): whether the entity to forecast is a state or a category
 
     Returns:
-        _type_: _description_
+        _type_: DataFrame: processed data ready for training
     """
 
     processed_data_path = os.path.join(os.getcwd(), "data", "processed_datasets")
@@ -26,7 +26,11 @@ def prepare_train_data(data, entity_name, is_state):
         )
 
     preprocessed_data = DataPreprocessor(
-        data.purchases, data.products, data.categories, entity_to_forcast=entity_name, is_state=is_state
+        data.purchases,
+        data.products,
+        data.categories,
+        entity_to_forcast=entity_name,
+        is_state=is_state,
     ).output()
 
     df = FeatureEngineering(
@@ -38,7 +42,7 @@ def prepare_train_data(data, entity_name, is_state):
     ).output()
 
     df.reset_index(inplace=True)
-    if entity_name == '':
+    if entity_name == "":
         df.to_csv(os.path.join(processed_data_path, "overall_sales.csv"), index=False)
     else:
         df.to_csv(
@@ -57,6 +61,19 @@ def process_results(
     cat_preds,
     overall_sales,
 ):
+    """process_results processes the results of the forecast by creating a DataFrame with the predictions and the actual sales.
+
+    Args:
+        start_year (_type_): Start year of the forecast
+        end_year (_type_): End year of the forecast
+        forcast_df (_type_): DataFrame containing the forecasted data
+        xgb_preds (_type_): predictions from the XGBoost model
+        cat_preds (_type_): predictions from the CatBoost model
+        overall_sales (_type_): overall sales data
+
+    Returns:
+        _type_: tuple: DataFrame with the predictions and actual sales, and the number of years of data
+    """
     print("Processing results...")
 
     return (
@@ -75,6 +92,14 @@ def process_results(
 
 
 def get_state_and_categories_by_frequency(data):
+    """get_state_and_categories_by_frequency gets the states and categories by frequency of purchases.
+
+    Args:
+        data (_type_): data object containing purchases, products, categories
+
+    Returns:
+        _type_: tuple: list of states and categories ordered by frequency
+    """
     preprocessed_data = DataPreprocessor(
         data.purchases, data.products, data.categories
     ).output()
@@ -99,7 +124,19 @@ def get_state_and_categories_by_frequency(data):
     return list(states_frequencies), list(category_frequencies)
 
 
-def forcast(start_date, end_date, data, entity_name='', is_state=None):
+def forcast(start_date, end_date, data, entity_name="", is_state=None):
+    """forcast function to forecast sales for a given date range and entity (state or category).
+
+    Args:
+        start_date (_type_): start date for the forecast
+        end_date (_type_): end date for the forecast
+        data (_type_): datafrom DataLoader
+        entity_name (str, optional): state or category Defaults to "".
+        is_state (_type_, optional): whether the entity to forecast is a state or a category, Defaults to None.
+
+    Returns:
+        _type_: tuple: DataFrame with the predictions and actual sales, and the number of years of data
+    """
 
     cross_validate = False
     processed_data_path = os.path.join(os.getcwd(), "data", "processed_datasets")
@@ -108,7 +145,7 @@ def forcast(start_date, end_date, data, entity_name='', is_state=None):
         print("Model already trained.")
         data = DataLoader(is_training=False)
         model = SalesForecaster(entity_name)
-        if entity_name == '':
+        if entity_name == "":
             overall_sales = DataPreprocessor(
                 pd.read_csv(os.path.join(processed_data_path, "overall_sales.csv"))
             ).output()

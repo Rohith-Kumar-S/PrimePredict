@@ -10,8 +10,18 @@ import os
 
 
 class SalesForecaster:
+    """SalesForecaster is a class that handles the training and prediction of sales data using XGBoost and CatBoost models.
+    It also provides methods for cross-validation and feature importance extraction.
+    """
 
     def __init__(self, entity_name=""):
+        """__init__ initializes the SalesForecaster class with empty models list and loads pre-trained models if available.
+        It also sets the entity name for the model, if provided.
+
+        Args:
+            entity_name (str, optional): state or category to forecast. Defaults to ''.
+        """
+
         self.models = []
         self.models.append(xgb.XGBRegressor())
         self.models.append(CatBoostRegressor())
@@ -32,14 +42,37 @@ class SalesForecaster:
             self.models = []
 
     def is_trained(self):
+        """is_trained checks if the model has been trained by checking if the models list is empty.
+        If the list is not empty, it means the model has been trained and loaded successfully.
+
+        Returns:
+            _type_: bool: True if the model is trained, False otherwise.
+        """
         return not len(self.models) == 0
 
     def get_feature_columns(self, df):
+        """get_feature_columns returns the feature columns from the dataframe excluding the target variable and other specified columns.
+
+        Returns:
+            _type_: list: list of feature columns to be used for training the model.
+        """
+
         salesdf_columns = list(df.columns)
         [salesdf_columns.remove(column) for column in ["total_sales", "S1", "S2", "S3"]]
         return sorted(salesdf_columns)
 
     def cross_validate(self, df, forcastdf, salesdf_columns):
+        """cross_validate performs cross-validation on the given dataframe using TimeSeriesSplit.
+
+        Args:
+            df (_type_): train data
+            forcastdf (_type_): forecaast data
+            salesdf_columns (_type_): feature columns to be used for training the model
+
+        Returns:
+            _type_: tuple: predictions, scores, and feature importances from the cross-validation.
+        """
+
         scores = []
         preds = []
         feature_importances = []
@@ -95,6 +128,14 @@ class SalesForecaster:
         return preds, scores, feature_importances
 
     def train(self, df, entity_name=""):
+        """train trains the XGBoost and CatBoost models on the given dataframe.
+        It also saves the trained models to disk.
+
+        Args:
+            df (_type_): full dataframe to train the model on.
+            entity_name (str, optional): state or category to forecast. Defaults to ''.
+        """
+
         salesdf_columns = self.get_feature_columns(df)
         X_train = df[salesdf_columns]
         y_train = df["total_sales"]
@@ -149,6 +190,15 @@ class SalesForecaster:
         cat_model.save_model(os.path.join(save_path, f"{save_file_name}cat.cbm"))
 
     def predict(self, df):
+        """predict predicts the sales using the trained models on the given dataframe.
+        It returns the predictions from both models.
+
+        Args:
+            df (_type_): forecast data to predict sales.
+
+        Returns:
+            _type_: tuple: predictions from XGBoost and CatBoost models.
+        """
         salesdf_columns = sorted(df.columns)
         X_test = df[salesdf_columns]
 
@@ -157,6 +207,15 @@ class SalesForecaster:
         return xgb_preds, cat_preds
 
     def get_feature_importance(self):
+        """get_feature_importance returns the feature importances from both models.
+
+        Raises:
+            ValueError: if the model has not been trained yet.
+
+        Returns:
+            _type_: tuple: feature importances from XGBoost and CatBoost models.
+        """
+
         if len(self.models) == 0:
             raise ValueError("Model has not been trained yet.")
         return self.model[0].feature_importances_, self.model[1].feature_importances_
