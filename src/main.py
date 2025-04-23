@@ -2,11 +2,22 @@ from preproccessing.datapreprocessing import DataPreprocessor
 from features.featureengineering import FeatureEngineering
 from data.dataloader import DataLoader
 import pandas as pd
-from models.forcast import SalesForecaster
+from models.forecast import SalesForecaster
 import os
 
 
 def prepare_train_data(data, entity_name, is_state):
+    """prepare_train_data prepares the data for training by preprocessing and feature engineering.
+    It saves the processed data to a CSV file in the processed_datasets directory.
+
+    Args:
+        data (_type_): _description_
+        entity_name (_type_): _description_
+        is_state (bool): _description_
+
+    Returns:
+        _type_: _description_
+    """
 
     processed_data_path = os.path.join(os.getcwd(), "data", "processed_datasets")
     if not "src" in processed_data_path:
@@ -97,7 +108,7 @@ def forcast(start_date, end_date, data, entity_name='', is_state=None):
         print("Model already trained.")
         data = DataLoader(is_training=False)
         model = SalesForecaster(entity_name)
-        if entity_name is '':
+        if entity_name == '':
             overall_sales = DataPreprocessor(
                 pd.read_csv(os.path.join(processed_data_path, "overall_sales.csv"))
             ).output()

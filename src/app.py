@@ -29,7 +29,7 @@ st.title("Amazon Sales Forecast")
 start = datetime.date(2023, 1, 1)
 temp = datetime.date(2023, 12, 31)
 end = datetime.date(2025, 12, 31)
-
+date_range = []
 date_range = st.date_input(
     "Select the range to forcast",
     value=(start, temp),
@@ -37,9 +37,11 @@ date_range = st.date_input(
     max_value=end,
     format="MM/DD/YYYY",
 )
-
-start_date = f"{date_range[0].year}-{date_range[0].month}-{date_range[0].day}"
-end_date = f"{date_range[1].year}-{date_range[1].month}-{date_range[1].day}"
+start_date = None
+end_date = None
+if len(date_range) == 2:
+    start_date = f"{date_range[0].year}-{date_range[0].month}-{date_range[0].day}"
+    end_date = f"{date_range[1].year}-{date_range[1].month}-{date_range[1].day}"
 # Button 1 logic
 if st.button("Forecast Overall Sales"):
     st.session_state.btn1_clicked = True
