@@ -47,7 +47,7 @@ narwhals==1.35.0
 notebook==7.4.0
 numpy==2.2.5
 overrides==7.7.0
-packaging==25.0
+packaging <25
 pandas==2.2.3
 pandocfilters==1.5.1
 pillow==11.2.1
