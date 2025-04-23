@@ -5,7 +5,8 @@ import numpy as np
 import locale
 from data.dataloader import DataLoader
 
-locale.setlocale(locale.LC_ALL, "en_US.UTF-8")
+# locale.setlocale(locale.LC_ALL, "en_US.UTF-8")
+locale.setlocale(locale.LC_ALL, "")
 
 st.set_page_config(
     page_title="PrimeForecast",  
