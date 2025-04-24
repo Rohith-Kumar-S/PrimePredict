@@ -21,16 +21,27 @@ src/
 ├── app.py
 ├── primepredict.py
 ├── data/
+    └── tests
+        └── test_dataloader.py
 │   ├── dataloader.py
 │   ├── preprocessed_datasets/
 │   └── raw_datasets/
 ├── eda/
+    └── EDA.ipynb
+    └── Features_and_Model-Statewise.ipynb
+    └── Features_and_Model.ipynb
 ├── features/
-│   └── feature_engineering.py
+    └── tests
+        └── test_featureengineering.py
+│   └── featureengineering.py
 ├── models/
+    └── tests
+        └── test_forecast.py
 │   ├── forecast.py
 │   └── saves/
 ├── preprocessing/
+    └── tests
+        └── test_datapreprocessing.py
     └── datapreprocessing.py
 </code></pre>
 
