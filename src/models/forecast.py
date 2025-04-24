@@ -146,14 +146,15 @@ class SalesForecaster:
             early_stopping_rounds=50,
             objective="reg:squarederror",
             learning_rate=0.01,
+            reg_alph= 0, 
+            reg_lambda= 0
         )
-        n_estimators = 800 if entity_name == "CA" else 1000
 
         cat_model = CatBoostRegressor(
             depth=3,
             l2_leaf_reg=2,
             learning_rate=0.01,
-            n_estimators=n_estimators,
+            n_estimators=1000,
             silent=True,
         )
 

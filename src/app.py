@@ -1,6 +1,6 @@
 import streamlit as st
 import datetime
-from main import forcast, get_state_and_categories_by_frequency
+from primepredict import PrimePredict
 import numpy as np
 import locale
 from data.dataloader import DataLoader
@@ -49,7 +49,7 @@ if st.button("Forecast Overall Sales"):
 
 # if forcast button is clicked, call the forcast function
 if st.session_state.btn1_clicked:
-    prediction_df, previous_sales, years = forcast(
+    prediction_df, previous_sales, years = PrimePredict().forcast(
         start_date, end_date, st.session_state.data_training
     )
     if prediction_df is not None:
@@ -70,7 +70,7 @@ if st.session_state.btn1_clicked:
 
 
 st.header("Forcast by State")
-states, category = get_state_and_categories_by_frequency(st.session_state.data_training)
+states, category = PrimePredict().get_state_and_categories_by_frequency(st.session_state.data_training)
 us_state_selected = st.selectbox(
     "Select a state **ordered by purchase frequency descending",
     states,
@@ -83,7 +83,7 @@ if st.button("Forecast State Sales"):
 # if forcast by states button is clicked, call the forcast function
 if st.session_state.btn2_clicked:
     print(us_state_selected)
-    prediction_df, previous_sales, years = forcast(
+    prediction_df, previous_sales, years = PrimePredict().forcast(
         start_date,
         end_date,
         st.session_state.data_training,
@@ -119,7 +119,7 @@ if st.button("Forecast Category Sales"):
 # if forcast by category button is clicked, call the forcast function
 if st.session_state.btn3_clicked:
     print(category_selected)
-    prediction_df, previous_sales, years = forcast(
+    prediction_df, previous_sales, years = PrimePredict().forcast(
         start_date,
         end_date,
         st.session_state.data_training,
