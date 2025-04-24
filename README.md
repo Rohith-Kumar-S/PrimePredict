@@ -58,13 +58,13 @@ from data.dataloader import DataLoader
 
 data = DataLoader(is_training=True)
 
-returns overall amazon sales forecast
+returns None at first, try again to fetch  overall amazon sales forecast
 
 overall_prediction_df, previous_sales, years = PrimePredict().forcast(
         "2023-04-04", "2024-04-04", data
     )
 
-returns statewise sales forecast
+returns None at first, try again to fetch statewise sales forecast
 
 statewise_prediction_df, previous_sales, years = PrimePredict().forcast(
         "2023-04-04",
@@ -74,7 +74,7 @@ statewise_prediction_df, previous_sales, years = PrimePredict().forcast(
         is_state=True,
     )
 
-return category wise sales forecast
+returns None at first, try again to fetch  category wise sales forecast
 
 categorywise_prediction_df, previous_sales, years = PrimePredict().forcast(
         "2023-04-04",
