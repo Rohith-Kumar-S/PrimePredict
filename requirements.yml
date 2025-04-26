@@ -121,7 +121,7 @@ dependencies:
       - notebook==7.4.0
       - numpy==2.2.5
       - overrides==7.7.0
-      - packaging==25.0
+      - packaging<25.0
       - pandas==2.2.3
       - pandocfilters==1.5.1
       - pillow==11.2.1
@@ -134,7 +134,6 @@ dependencies:
       - pycparser==2.22
       - pydeck==0.9.1
       - pyparsing==3.2.3
-      - python-graphviz==0.20.3
       - python-json-logger==3.3.0
       - pytz==2025.2
       - pywin32==310
